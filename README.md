@@ -1,45 +1,10 @@
-# spectrogram
-
-> Audio spectrogram in canvas.
-
-[![NPM](https://nodei.co/npm/spectrogram.png)](https://nodei.co/npm/spectrogram)
-
-# Demo
-
-[http://lab.moogs.io/spectrogram](http://lab.moogs.io/spectrogram)
-
-# Install
-
-```bash
-npm install spectrogram
-```
-
-```bash
-bower install spectrogram
-```
-
-# Usage
+[![npm install audio-spectrogram](https://nodei.co/npm/audio-spectrogram.png?mini=true)](https://nodei.co/npm/audio-spectrogram/)
 
 ```javascript
-var spectrogram = require('spectrogram');
+var spectrogram = require('audio-spectrogram');
 
-var spectro = Spectrogram(document.getElementById('canvas'));
+var spectro = Spectrogram(element);
 
-var audioContext = new audioContext();
-var request = new XMLHttpRequest();
-request.open('GET', 'audio.mp3', true);
-request.responseType = 'arraybuffer';
-
-request.onload = function() {
-  audioContext.decodeAudioData(request.response, function(buffer) {
-    spectro.addSource(buffer, audioContext);
-    spectro.start();
-  });
-};
-
-request.send();
+spectro.addSource(buffer, audioContext);
+spectro.start();
 ```
-
-# License
-
-MIT

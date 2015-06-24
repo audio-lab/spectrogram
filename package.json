@@ -1,8 +1,8 @@
 {
-  "name": "spectrogram",
-  "version": "0.0.2",
-  "description": "Audio spectrogram in canvas.",
-  "main": "spectrogram.js",
+  "name": "audio-spectrogram",
+  "version": "1.0.0",
+  "description": "Audio spectrogram component",
+  "main": "index.js",
   "directories": {
     "test": "test"
   },
@@ -39,5 +39,11 @@
   },
   "engines": {
     "node": ">=0.10.0"
+  },
+  "dependencies": {
+    "audio-context": "^0.1.0",
+    "color-space": "^1.4.1",
+    "mumath": "^1.0.2",
+    "xtend": "^4.0.0"
   }
 }
