@@ -1,0 +1,131 @@
+<!doctype html>
+
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+<meta name="description" content="Audio spectrogram">
+<meta name="keyword" content="">
+<meta name="author" content="Deema Ywanov" />
+<meta name="copyright" content="© 2015 Dmitry Ivanov" />
+<meta name="contact" content="df.creative@gmail.com" />
+<meta http-equiv="content-language" content="en" />
+
+<meta property="og:title" content="Audio spectrogram"/>
+<meta property="og:image" content="https://raw.githubusercontent.com/dfcreative/spectrogram/gh-pages/logo.png"/>
+<meta property="og:url" content="http://dfcreative.github.io/spectrogram"/>
+<meta property="og:description" content="Audio spectrogram"/>
+
+
+<title>Audio spectrogram</title>
+
+<link rel="author" href="https://plus.google.com/+DmitryIvanovDfcreative"/>
+
+<style>
+	body{
+		font-family: sans-serif;
+	}
+	.play {
+		position: absolute;
+		display: block;
+		width: 40px;
+		height: 40px;
+		border: 0;
+		background: none;
+		text-align: center;
+		z-index: 1;
+		color: white;
+	}
+	.play:after{
+		content: "▶"
+	}
+	.play-pause:after{
+		content: "❙❙";
+		letter-spacing: -.5rem;
+		margin-left: -.7rem;
+	}
+
+	.audio-spectrogram {
+		position: absolute;
+		top: 0;
+		left: 0;
+
+		height: 100vh;
+		width: 100vw;
+
+		background: gray;
+	}
+	.audio-spectrogram-canvas {
+		position: absolute;
+		top: 0;
+		left: 0;
+		bottom: 0;
+		right: 0;
+	}
+</style>
+
+<a href="https://github.com/dfcreative/spectrogram"><img style="z-index: 1; position: absolute; top: 0; right: 0; border: 0;" src="https://camo.githubusercontent.com/52760788cde945287fbb584134c4cbc2bc36f904/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f77686974655f6666666666662e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_white_ffffff.png"></a>
+
+<script type="text/javascript" src="bundle.js"></script>
+
+<script type="text/javascript">
+	var Spectrogram = require('audio-spectrogram');
+	var q = require('queried');
+	var on = require('emmy/on');
+	var audioContext = require('audio-context');
+	var getUserMedia = require('getusermedia');
+
+	var doc = document, win = window, root = doc.documentElement, body = doc.body;
+
+
+	//create spectrogram
+	var spectrogram = new Spectrogram({
+		width: win.innerWidth,
+		height: win.innerHeight
+	});
+	root.appendChild(spectrogram.element);
+
+	spectrogram.connect(audioContext.destination);
+
+
+	//get access to the microphone
+	getUserMedia({audio: true}, function (err, stream) {
+		if (err) {
+			console.log('failed to get microphone');
+			createChopin();
+		} else {
+			console.log('got microphone', stream);
+			spectrogram.disconnect();
+			spectrogram.setSource(stream);
+			spectrogram.start();
+		}
+	});
+
+
+	function createChopin(){
+		//create playable chopin
+		var audioEl = doc.createElement('audio');
+		audioEl.src = './chopin.mp3';
+
+		var playBtn = doc.createElement('button');
+		playBtn.className = 'play';
+		root.appendChild(playBtn);
+
+		on(playBtn, 'click', function () {
+			if (audioEl.paused) {
+				audioEl.play();
+				playBtn.classList.add('play-pause');
+			}
+			else {
+				audioEl.pause();
+				audioEl.currentTime = 0;
+				playBtn.classList.remove('play-pause');
+			}
+		});
+
+		spectrogram.setSource(audioEl);
+		spectrogram.start();
+
+		playBtn.click();
+	}
+
+</script>

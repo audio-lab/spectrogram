@@ -1,0 +1,33 @@
+{
+  "name": "audio-spectrogram-demo",
+  "version": "1.0.0",
+  "description": "Sound-spectrogram component demo page",
+  "main": "index.js",
+  "scripts": {
+    "build": "browserify -r queried -r emmy/on -r audio-context -r getusermedia -r ../audio-spectrogram:audio-spectrogram | ccjs - --language_in=ECMASCRIPT5 > bundle.js",
+    "watch": "watchify -r queried -r emmy/on -r audio-context -r getusermedia -r ../audio-spectrogram:audio-spectrogram -d -o bundle.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dfcreative/spectrogram/"
+  },
+  "keywords": [
+    "spectrogram"
+  ],
+  "author": "Deema Ywanov",
+  "license": "MIT",
+  "dependencies": {
+    "audio-context": "^0.1.0",
+    "browserify": "^10.2.4",
+    "emmy": "^5.2.8",
+    "getusermedia": "^1.2.1",
+    "queried": "^1.4.1",
+    "watchify": "^3.2.3"
+  },
+  "devDependencies": {
+    "browserify": "^10.2.4",
+    "closurecompiler": "^1.5.2",
+    "watchify": "^3.2.3"
+  }
+}
