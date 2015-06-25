@@ -5,6 +5,10 @@
 var lg = require('mumath/lg');
 var cubehelix = require('color-space/cubehelix');
 var context = require('audio-context');
+var raf = require('component-raf');
+var Emitter = require('events');
+var extend = require('xtend/mutable');
+var lifecycle = require('lifecycle-events');
 
 
 module.exports = Spectrogram;
@@ -18,12 +22,14 @@ var doc = document, win = window;
  *
  * @constructor
  */
-function Spectrogram () {
+function Spectrogram (options) {
 	var self = this;
 
 	if (!(self instanceof Spectrogram)) {
 		return new Spectrogram(element);
 	}
+
+	extend(this, options);
 
 	//create holder
 	self.element = doc.createElement('div');
@@ -40,33 +46,65 @@ function Spectrogram () {
 	self.canvas = doc.createElement('canvas');
 	self.canvasContext = self.canvas.getContext('2d');
 	self.canvas.className = 'audio-spectrogram-canvas';
+	self.reset();
 	self.element.appendChild(self.canvas);
 
 	//create script node
 	self.scriptNode = self.context.createScriptProcessor(2048, 1, 1);
 
+	self.analyser = self.context.createAnalyser();
+	self.analyser.minDecibels = self.minDecibels;
+	self.analyser.maxDecibels = self.maxDecibels;
+	self.analyser.smoothingTimeConstant = self.smoothingTimeConstant;
+	self.analyser.fftSize = self.fftSize;
+
+	//analyser → script → destination
+	//script node starts plotting only when it is connected to the destination
+	self.analyser.connect(self.scriptNode);
+	self.scriptNode.connect(self.context.destination);
+
+	//events
+
 	//draw on audioprocess
 	self.scriptNode.onaudioprocess = function () {
+		if (!self.isActive) return self;
+
 		var array = new Uint8Array(self.analyser.frequencyBinCount);
 		self.analyser.getByteFrequencyData(array);
 
-		if (self.sourceNode.playbackState === self.sourceNode.PLAYING_STATE) {
-			self.draw(array);
-		}
+		self.draw(array);
 	};
 
-	self.analyser = self.context.createAnalyser();
-	self.analyser.smoothingTimeConstant = 0;
-	self.analyser.fftSize = 1024;
 
-	//analyser → script → destination
-	self.scriptNode.connect(self.context.destination);
-	self.analyser.connect(self.scriptNode);
+	lifecycle(self.element);
+
+	//once canvas is inserted - update it’s calc styles
+	on(self.element, 'attached', function () {
+		self.update();
+	});
+
+	//update canvas size on resize
+	on(win, 'resize', function () {
+		self.update();
+	});
+
+	self.reset();
 }
 
 
+var proto = Spectrogram.prototype = Object.create(Emitter.prototype);
+
+
+/** Rendering properties */
+//analyzer
+proto.fftSize = 4096;
+proto.minDecibels = -90;
+proto.maxDecibels = -30;
+proto.smoothingTimeConstant = 0;
+
+
 /** Append source node, in an universal way */
-Spectrogram.prototype.addSource = function (audio) {
+proto.setSource = function (audio) {
 	var self = this;
 
 	//ensure audio element
@@ -85,58 +123,105 @@ Spectrogram.prototype.addSource = function (audio) {
 
 	//source → analyser
 	self.sourceNode.connect(self.analyser);
-	self.sourceNode.connect(self.context.destination);
 
 	return self;
 };
 
 
+/** Connect to the output */
+proto.connect = function (target) {
+	this.analyser.connect(target);
+};
+proto.disconnect = function () {
+	this.analyser.disconnect();
+};
+
+
 /** Render input buffer */
-Spectrogram.prototype.draw = function (array) {
+proto.draw = function (array) {
 	var self = this;
 
-	var width = self.canvas.width;
-	var height = self.canvas.height;
+	raf(function () {
+		var width = self.canvas.width;
+		var height = self.canvas.height;
 
-	var ctx = self.canvasContext;
+		var ctx = self.canvasContext;
 
-	self.canvasContext.translate(1, 0);
-	for (var i = 0; i < array.length; i++) {
-		var value = array[i];
-		ctx.fillStyle = 'rgb(' + self.getColor(value / 255).map(Math.round) + ')';
-		ctx.fillRect(1, height - i, 1, 1);
-	}
+		self.offset++;
+
+		//displace canvas
+		var imgData = ctx.getImageData(0,0, width, height);
+		ctx.putImageData(imgData, -1, 0);
+
+		//put new slice
+		var step = 1;//height / (array.length / 2);
+		for (var i = 0; i < array.length; i++) {
+			var value = array[i];
+			ctx.fillStyle = 'rgb(' + self.getColor(value / 255).map(Math.round) + ')';
+			ctx.fillRect(width - 1, height - i, 1, step);
+		}
+	});
+
+	self.emit('draw', array);
 
 	return self;
 };
 
 
 /** Start plotting */
-Spectrogram.prototype.start = function () {
+proto.start = function () {
 	var self = this;
 
-	//reread canvas styles
-	self.color = getComputedStyle(self.canvas).color || 'black';
+	self.update();
 
-	//fit canvas to the container size
-	self.canvas.width = self.element.clientWidth;
-	self.canvas.height = self.element.clientHeight;
-
-	self.sourceNode.start(0);
-
+	self.isActive = true;
 	return self;
 };
 
 
 /** Stop plottings */
-Spectrogram.prototype.stop = function () {
-	this.sourceNode.stop();
+proto.stop = function () {
+	var self = this;
+	self.isActive = false;
+	return self;
+};
+
+
+/** Clear canvas, clear offset */
+proto.reset = function () {
+	var self = this;
+	var ctx = self.canvasContext;
+
+	self.update();
+
+	//reset transform
+	self.offset = 0;
 
 	return self;
 };
 
 
+/** Update canvas size & bg */
+proto.update = function () {
+	var self = this;
+	var ctx = self.canvasContext;
+
+	//update canvas size
+	self.canvas.width = self.element.clientWidth;
+	self.canvas.height = self.element.clientHeight;
+
+	//clear canvas
+	ctx.fillStyle = 'rgb(' + self.getColor(0).map(Math.round) + ')';
+	ctx.fillRect(0, 0, self.canvas.width, self.canvas.height);
+};
+
+
 /** Get color by a cubehelix scheme */
-Spectrogram.prototype.getColor = function (index) {
-	return cubehelix.rgb(index);
+proto.getColor = function (index) {
+	return cubehelix.rgb(index, {
+		rotation: 1,
+		start: 2.2,
+		hue: 1.1,
+		gamma: 1
+	});
 };
